@@ -162,7 +162,7 @@ add+delete 추출 결과:
 - 채점은 같은 LLM(gpt-6-luna)이 정답 기준과 비교하는 방식이라 자기 채점 편향이 있습니다.
 - 실행 과정에서 OpenAI API를 사용합니다.
 
-## 파일
+## 파일 (1·2차, 합성 데이터)
 - `data/dataset.jsonl`: 평가셋 100개
 - `data/results_run2.jsonl`: 2차 실행 결과 (추출 로그, 검색 기억, 답변, 채점 포함)
 - `scripts/gen_dataset.py`: 데이터셋 생성
@@ -175,3 +175,41 @@ pip install mem0ai
 python scripts/run_eval.py   # data/results.jsonl 생성
 python scripts/summary.py
 ```
+
+---
+
+## 3차 실행: 공개 데이터셋 (LongMemEval)
+
+합성 데이터 대신 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) (MIT License, oracle split)로 다시 돌렸습니다. 원본은 `longmemeval_oracle.json`이고, 이 저장소에는 그중 100문항만 들어 있습니다.
+
+### 구성
+- 메모리 사용 70: knowledge-update 35 (정보 갱신, `has_update=true`) + single-session-user 35
+- 메모리 미사용 30: abstention 문항 전부 (대화에 답이 없는 질문)
+
+1·2차와 셋이 다르고 미사용 쪽의 정의도 다릅니다. 세 번의 점수를 직접 비교하면 안 됩니다.
+
+### 결과
+
+| 지표 | add-only | add+delete |
+|---|---|---|
+| 메모리 사용 정확도 (70) | 94.3 | 85.7 |
+| └ 정보 갱신 (35) | 88.6 | 77.1 |
+| └ 단일 세션 사용자 정보 (35) | 100.0 | 94.3 |
+| 메모리 미사용 정확도 (30, abstention) | 76.7 | 80.0 |
+| └ 기억 없이 답했을 때 | 73.3 | 76.7 |
+| 평균 저장 기억 수 | 7.2 | 8.9 |
+| **태스크 평균** | **85.5** | **82.9** |
+| 전체 100문항 평균 | 89.0 | 84.0 |
+
+### 해석
+- 이번 셋에서는 add-only가 메모리 사용 쪽에서 앞섰습니다. 1차 합성 셋에서는 add+delete가 정정 케이스에서 앞섰으므로 방향이 반대입니다.
+- 정보 갱신 35문항에서 3문항 차이가 8.6점입니다. 표본이 작아서 노이즈가 큽니다.
+- 정답은 영어이고 답변 프롬프트는 한국어로 답하도록 되어 있습니다. 채점 모델이 교차 언어를 비교하므로 점수에 영향이 있을 수 있습니다.
+
+### 파일
+- `data/dataset_longmemeval.jsonl`: 3차 평가셋 100문항
+- `data/results_run3_longmemeval.jsonl`: 3차 실행 결과
+- `scripts/make_longmemeval_set.py`: LongMemEval에서 평가셋을 만드는 스크립트 (`python scripts/make_longmemeval_set.py longmemeval_oracle.json data/dataset_longmemeval.jsonl`)
+
+### 출처
+LongMemEval (Wu et al.), MIT License. https://github.com/xiaowu0162/LongMemEval
